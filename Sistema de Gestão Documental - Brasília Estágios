@@ -1,0 +1,19 @@
+# 🏛️ Sistema de Gestão Documental - Brasília Estágios
+
+Este sistema foi desenvolvido como um **Legado Profissional** para a Brasília Estágios, focado na automação de processos de RH e conformidade documental.
+
+## 🚀 Funcionalidades Principais
+* **Automação de Rescisões**: Extração inteligente de dados de contratos para geração instantânea de termos.
+* **Padronização ABNT**: Documentos gerados automaticamente em fonte Arial 12pt, espaçamento 1.5 e recuo de 1,25cm.
+* **Ultra-Resolução**: Processamento de imagem em alta fidelidade para garantir a nitidez do papel timbrado oficial.
+
+## 🛡️ Segurança e LGPD
+O sistema foi projetado sob o princípio de *Privacy by Design*:
+* **Processamento Local**: Nenhum dado pessoal do estagiário é enviado ou salvo em servidores externos. Tudo ocorre no navegador do usuário.
+* **Sem Banco de Dados**: A ferramenta não armazena informações confidenciais na nuvem, garantindo total privacidade.
+
+## 🎓 Contexto Acadêmico
+Projeto desenvolvido por **Divino José**, estudante de Bacharelado em Administração e Gestão de Recursos Humanos na **UNIASSELVI**, unindo tecnologia à gestão de pessoas.
+
+---
+*Desenvolvido em 2026 como solução tecnológica para a Brasília Estágios.*
