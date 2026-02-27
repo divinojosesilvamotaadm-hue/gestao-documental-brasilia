@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo de Automação - Brasília Estágios</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #990000; --secondary: #2c3e50; --success: #27ae60;
+            --blue: #2980b9; --danger: #e74c3c; --light: #f8f9fa;
+            --dark-dev: #1a1a1a; --batch: #673ab7;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #e9ecef; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; }
+        
+        .dev-identity-bar {
+            width: 100%; background: var(--dark-dev); color: #ffffff; padding: 12px 0; font-size: 11px;
+            text-transform: uppercase; letter-spacing: 1px; border-bottom: 3px solid var(--primary);
+        }
+        .dev-container { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+
+        .painel, .historico-container { 
+            background: white; padding: 30px; border-radius: 8px; 
+            width: 100%; max-width: 1100px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); 
+            margin-bottom: 20px; box-sizing: border-box; 
+        }
+
+        .historico-container { margin-top: 40px; margin-bottom: 100px; }
+
+        .header-painel { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        .logo-container { flex: 1; max-width: 250px; }
+        .logo-container svg { width: 100%; height: auto; max-height: 50px; }
+
+        .controles { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        textarea { grid-column: span 2; height: 120px; padding: 12px; border: 1.5px solid #dee2e6; border-radius: 6px; resize: vertical; }
+        input { padding: 12px; border: 1.5px solid #dee2e6; border-radius: 6px; font-size: 14px; }
+        
+        .botoes { grid-column: span 2; display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+        button { flex: 1; min-width: 150px; padding: 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-transform: uppercase; transition: 0.2s; }
+        
+        .btn-visualizar { background: var(--blue); color: white; }
+        .btn-imprimir-direto { background: var(--success); color: white; }
+        .btn-baixar-lote { background: var(--batch); color: white; }
+        .btn-limpar { background: #f8f9fa; color: #999; border: 1px solid #ddd; }
+
+        #painel-historico { display: none; }
+        .busca-container { margin-bottom: 15px; width: 100%; border-top: 2px solid #eee; padding-top: 20px; }
+        #inputBusca { width: 100%; padding: 12px; border: 2px solid var(--blue); border-radius: 6px; box-sizing: border-box; font-weight: bold; }
+        
+        .historico-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; }
+        .historico-table th { background: var(--light); padding: 12px; border-bottom: 2px solid #dee2e6; }
+        .historico-table td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+
+        .btn-baixar-log { background: #ebf5fb; color: var(--blue); border: 1px solid var(--blue); padding: 5px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: bold; margin: 2px; }
+        .btn-ver-log { background: #f4f6f7; color: #555; border: 1px solid #ccc; padding: 5px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: bold; margin: 2px; }
+        .btn-baixado { background: #e9f7ef !important; color: var(--success) !important; border: 1px solid var(--success) !important; }
+
+        #container-folha { width: 210mm; height: 297mm; background: white; position: relative; display: none; margin-top: 20px; box-shadow: 0 0 50px rgba(0,0,0,0.2); overflow: hidden; }
+        #canvas-fundo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .camada-texto { position: relative; z-index: 2; padding: 85mm 25mm 20mm 25mm; box-sizing: border-box; font-family: Arial, sans-serif; font-size: 12pt; color: black; line-height: 1.6; }
+        
+        h2 { text-align: center; font-size: 14pt; margin-bottom: 40px; font-weight: bold; text-transform: uppercase; }
+        .paragrafo { text-align: justify; text-indent: 50px; margin-bottom: 20px; }
+
+        @media print {
+            .dev-identity-bar, .painel, .historico-container, .busca-container { display: none !important; }
+            #container-folha { display: block !important; margin: 0; box-shadow: none; }
+            @page { size: A4; margin: 0; }
+        }
+    </style>
+</head>
+<body onload="verificarHistorico()">
+
+<header class="dev-identity-bar">
+    <div class="dev-container">
+        <div><strong>MÓDULO DE AUTOMAÇÃO DE CONTRATOS</strong> | BRASÍLIA ESTÁGIOS</div>
+        <div>DESENVOLVIDO POR: <strong>DIVINO JOSÉ</strong> | GESTÃO DE RH & ADM</div>
+    </div>
+</header>
+
+<div class="painel">
+    <div class="header-painel">
+        <div class="logo-container">
+            <svg viewBox="-17505.691 -16286.759 35511.383 13463.7" xmlns="http://www.w3.org/2000/svg">
+                <g transform="matrix(1, 0, 0, 1, -27392.367187, -18897.21875)">
+                    <path d="M 18688.35 10747.39 C 16220.68 12006.04 12287.51 11790.18 11458.78 9728.93 C 11119.23 8884.38 11300.84 7730.01 12318.01 6240.35 C 9830.24 8703.33 8266.57 11703.89 12647.74 12868.43 C 14821.15 13446.12 16049.02 12873.53 16633.15 16074.16 C 17021.88 14049.8 17706.94 12274.22 18688.35 10747.39 Z" fill="#990000"/>
+                    <path d="M 11458.78 9728.93 C 12318.48 7631.53 13607.95 5844.17 17346.17 2610.46 C 16548.37 2861.91 14175.58 4401.26 12318.01 6240.35 C 11300.84 7730.01 11119.23 8884.38 11458.78 9728.93 Z" fill="#808080"/>
+                    <g transform="matrix(1, 0, 0, 1, 18362.578125, -10012.216797)">
+                        <text style="fill: #333333; font-family: Arial, sans-serif; font-size: 3200px; font-weight: bold;" x="3149.96" y="25427.5">Brasília Estágios</text>
+                    </g>
+                </g>
+            </svg>
+        </div>
+        <small>Módulo de Emissão Documental</small>
+    </div>
+
+    <div class="controles">
+        <div style="grid-column: span 2;">
+            <label><strong>1. PDF do Papel Timbrado:</strong></label>
+            <input type="file" id="pdf-fundo" accept="application/pdf" style="width: 100%; margin-top:5px;">
+        </div>
+        <textarea id="texto-tce" placeholder="Cole os dados do TCE aqui..."></textarea>
+        <input type="text" id="data-rescisao" placeholder="Data Rescisão (Ex: 26022026)" oninput="formatarDataManual(this)">
+        <input type="text" id="localidade" value="Brasília/DF">
+        
+        <div class="botoes">
+            <button class="btn-visualizar" onclick="processarAcao('visualizar')">Gerar Documento</button>
+            <button class="btn-imprimir-direto" onclick="processarAcao('direta')">Download PDF</button>
+            <button class="btn-baixar-lote" id="btnLote" onclick="baixarTodosVisiveis()">Baixar Todos do Log</button>
+            <button class="btn-limpar" onclick="limparTudo()">Apagar Log</button>
+        </div>
+    </div>
+</div>
+
+<div id="container-folha">
+    <canvas id="canvas-fundo"></canvas>
+    <div class="camada-texto">
+        <h2>RESCISÃO DE TERMO DE COMPROMISSO DE ESTÁGIO</h2>
+        <div class="paragrafo">
+            Declaramos, para os devidos fins, que o(a) estagiário(a) <strong id="out-nome"></strong>, vinculado(a) à empresa <strong id="out-empresa"></strong>, com intermediação da <strong>BRASÍLIA PLANEJAMENTO EM RECURSOS HUMANOS LTDA – Brasília Estágios</strong>, atuando como agente de integração, teve seu Acordo de Cooperação e Termo de Compromisso de Estágio (AC/TCE) n° <strong id="out-tce"></strong>, firmado nos termos da Lei nº 11.788/2008, com início em <strong id="out-inicio"></strong> e rescindido em <strong id="out-rescisao"></strong>.
+        </div>
+        <div class="paragrafo">
+            Nos termos do artigo 3º da referida Lei, o estágio teve como objetivo o aprendizado de competências próprias da atividade profissional, visando ao desenvolvimento do educando para a vida cidadã e para o trabalho.
+        </div>
+        <div class="paragrafo">
+            Por ser verdade, firmamos a presente declaração para os fins que se fizerem necessários.
+        </div>
+        <div id="display-data" style="text-align:right; margin-top:50px; font-weight: bold;"></div>
+        <div style="display:flex; justify-content:space-between; text-align:center; font-size:9pt; margin-top:100px">
+            <div style="width:30%; border-top:1px solid black; padding-top:5px">Empresa Concedente</div>
+            <div style="width:30%; border-top:1px solid black; padding-top:5px">Agente de Integração</div>
+            <div style="width:30%; border-top:1px solid black; padding-top:5px">Estagiário(a)</div>
+        </div>
+    </div>
+</div>
+
+<div class="historico-container" id="painel-historico">
+    <h3 style="margin-top:0; color:var(--secondary)">Histórico de Emissões</h3>
+    <div class="busca-container">
+        <input type="text" id="inputBusca" onkeyup="filtrarTabela()" placeholder="🔍 Pesquisar no histórico por NOME ou NÚMERO DO TCE...">
+    </div>
+    <table class="historico-table">
+        <thead>
+            <tr>
+                <th>Data/Hora</th>
+                <th>Estagiário</th>
+                <th>Empresa</th>
+                <th>Nº TCE</th>
+                <th>Início</th>
+                <th>Rescisão</th>
+                <th style="text-align:center">Ações</th>
+                <th>Excluir</th>
+            </tr>
+        </thead>
+        <tbody id="lista-historico"></tbody>
+    </table>
+</div>
+
+<script>
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+    function formatarDataManual(input) {
+        // Remove tudo que não é dígito
+        let v = input.value.replace(/\D/g, '');
+        
+        // Se colar algo maior que 8 dígitos, corta
+        if (v.length > 8) v = v.substring(0, 8);
+
+        // Aplica a máscara DD/MM/AAAA conforme digita
+        if (v.length >= 5) {
+            input.value = v.replace(/(\d{2})(\d{2})(\d{1,4})/, "$1/$2/$3");
+        } else if (v.length >= 3) {
+            input.value = v.replace(/(\d{2})(\d{1,2})/, "$1/$2");
+        } else {
+            input.value = v;
+        }
+    }
+
+    function verificarHistorico() {
+        const conteudo = localStorage.getItem('logRescisaoFinal_v4');
+        const painel = document.getElementById('painel-historico');
+        if (conteudo) {
+            document.getElementById('lista-historico').innerHTML = conteudo;
+            painel.style.display = 'block';
+        } else {
+            painel.style.display = 'none';
+        }
+    }
+
+    function filtrarTabela() {
+        const filtro = document.getElementById("inputBusca").value.toUpperCase();
+        const rows = document.getElementById("lista-historico").getElementsByTagName("tr");
+        for (let row of rows) {
+            const nomeTexto = row.querySelector('.log-nome')?.innerText.toUpperCase() || "";
+            const tceTexto = row.querySelector('.log-tce')?.innerText.toUpperCase() || "";
+            if (nomeTexto.includes(filtro) || tceTexto.includes(filtro)) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        }
+    }
+
+    async function processarAcao(tipo, dadosManual = null) {
+        return new Promise(async (resolve) => {
+            const fileInput = document.getElementById('pdf-fundo');
+            if (!fileInput.files[0]) {
+                alert("Anexe o PDF do papel timbrado primeiro.");
+                return resolve();
+            }
+
+            let nome, empresa, numTCE, inicio, dResc;
+
+            if (dadosManual) {
+                ({ nome, empresa, numTCE, inicio, dResc } = dadosManual);
+            } else {
+                const raw = document.getElementById('texto-tce').value.trim();
+                dResc = document.getElementById('data-rescisao').value.trim();
+                if (!raw || dResc.length < 10) {
+                    alert("Preencha os dados e a data de rescisão corretamente (Ex: 26/02/2026).");
+                    return resolve();
+                }
+                
+                const extrair = (regex) => (raw.match(regex)?.[1] || "").trim();
+                nome = extrair(/Nome:\s*([^\n\r]+?)(?=\s*(Cadastro|CPF|Matrícula|RG|$))/i) || "NÃO IDENTIFICADO";
+                empresa = extrair(/(?:Razão Social|Empresa):\s*([^\n\r]+?)(?=\s*(CNPJ|Endereço|Fone|$))/i) || "NÃO IDENTIFICADA";
+                numTCE = extrair(/(?:Número|TCE nº|Contrato nº|Termo nº|n°):\s*([\d\s\/\.-]+)/i) || "0000";
+                inicio = extrair(/(?:início em|iniciar-se em|vigência de|Início:)\s*([\d/]+)/i) || "--/--/----";
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function() {
+                const pdfData = new Uint8Array(this.result);
+                const pdf = await pdfjsLib.getDocument(pdfData).promise;
+                const page = await pdf.getPage(1);
+                const canvas = document.getElementById('canvas-fundo');
+                const viewport = page.getViewport({scale: 3.5});
+                canvas.height = viewport.height; canvas.width = viewport.width;
+                await page.render({canvasContext: canvas.getContext('2d'), viewport: viewport}).promise;
+                
+                document.getElementById('out-nome').innerText = nome.toUpperCase();
+                document.getElementById('out-empresa').innerText = empresa.toUpperCase();
+                document.getElementById('out-tce').innerText = numTCE;
+                document.getElementById('out-inicio').innerText = inicio;
+                document.getElementById('out-rescisao').innerText = dResc;
+                
+                const hoje = new Date();
+                document.getElementById('display-data').innerText = `${document.getElementById('localidade').value}, ${hoje.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'})}.`;
+                
+                const container = document.getElementById('container-folha');
+                container.style.display = 'block';
+
+                if (!dadosManual) {
+                    const logHTML = `<tr>
+                        <td>${hoje.toLocaleString()}</td>
+                        <td class="log-nome">${nome.toUpperCase()}</td>
+                        <td class="log-empresa">${empresa.toUpperCase()}</td>
+                        <td class="log-tce">${numTCE}</td>
+                        <td class="log-inicio">${inicio}</td>
+                        <td class="log-rescisao">${dResc}</td>
+                        <td style="text-align:center">
+                            <button class="btn-ver-log" onclick="visualizarDoLog(this)">VER</button>
+                            <button class="btn-baixar-log" onclick="baixarDoLog(this)">PDF</button>
+                        </td>
+                        <td><button onclick="this.closest('tr').remove(); salvarEstado();" style="border:none; cursor:pointer; background:none;">🗑️</button></td>
+                    </tr>`;
+                    document.getElementById('lista-historico').insertAdjacentHTML('afterbegin', logHTML);
+                    salvarEstado();
+                    container.scrollIntoView({ behavior: 'smooth' });
+                }
+
+                if (tipo === 'direta') {
+                    const { jsPDF } = window.jspdf;
+                    const canvasFinal = await html2canvas(container, { scale: 2 });
+                    const pdfRes = new jsPDF('p', 'mm', 'a4');
+                    pdfRes.addImage(canvasFinal.toDataURL('image/png'), 'PNG', 0, 0, 210, 297);
+                    const tceLimpo = numTCE.replace(/\//g, '-').split(' ')[0];
+                    pdfRes.save(`Rescisão TCE ${tceLimpo} - ${nome.toUpperCase()}.pdf`);
+                }
+                resolve();
+            };
+            reader.readAsArrayBuffer(fileInput.files[0]);
+        });
+    }
+
+    async function baixarDoLog(btn) {
+        const row = btn.closest('tr');
+        const dados = {
+            nome: row.querySelector('.log-nome').innerText,
+            empresa: row.querySelector('.log-empresa').innerText,
+            numTCE: row.querySelector('.log-tce').innerText,
+            inicio: row.querySelector('.log-inicio').innerText,
+            dResc: row.querySelector('.log-rescisao').innerText
+        };
+        await processarAcao('direta', dados);
+        btn.innerText = "BAIXADO";
+        btn.classList.add('btn-baixado');
+    }
+
+    async function visualizarDoLog(btn) {
+        const row = btn.closest('tr');
+        const dados = {
+            nome: row.querySelector('.log-nome').innerText,
+            empresa: row.querySelector('.log-empresa').innerText,
+            numTCE: row.querySelector('.log-tce').innerText,
+            inicio: row.querySelector('.log-inicio').innerText,
+            dResc: row.querySelector('.log-rescisao').innerText
+        };
+        await processarAcao('visualizar', dados);
+        document.getElementById('container-folha').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function baixarTodosVisiveis() {
+        const linhas = Array.from(document.querySelectorAll('#lista-historico tr'))
+                            .filter(tr => tr.style.display !== 'none');
+
+        if (linhas.length === 0) return alert("Não há registros para baixar.");
+
+        const confirmar = confirm(`Deseja baixar ${linhas.length} PDFs em lote?`);
+        
+        if (confirmar) {
+            const btn = document.getElementById('btnLote');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+
+            for (let i = 0; i < linhas.length; i++) {
+                btn.innerText = `PROCESSANDO ${i+1}/${linhas.length}...`;
+                const btnIndividual = linhas[i].querySelector('.btn-baixar-log');
+                if (btnIndividual) {
+                    await baixarDoLog(btnIndividual);
+                    await new Promise(r => setTimeout(r, 600));
+                }
+            }
+
+            btn.innerText = originalText;
+            btn.disabled = false;
+            alert("Download em lote concluído!");
+        }
+    }
+
+    function salvarEstado() {
+        localStorage.setItem('logRescisaoFinal_v4', document.getElementById('lista-historico').innerHTML);
+        verificarHistorico();
+    }
+
+    function limparTudo() { if(confirm("Deseja apagar todo o histórico?")) { localStorage.clear(); location.reload(); } }
+</script>
+</body>
+</html>
