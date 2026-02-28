@@ -37,7 +37,7 @@
         .logo-container svg { width: 100%; height: auto; max-height: 50px; }
 
         .controles { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        textarea { grid-column: span 2; height: 120px; padding: 12px; border: 1.5px solid #dee2e6; border-radius: 6px; resize: vertical; }
+        textarea { grid-column: span 2; height: 120px; padding: 12px; border: 1.5px solid #dee2e6; border-radius: 6px; resize: vertical; font-family: monospace; }
         input { padding: 12px; border: 1.5px solid #dee2e6; border-radius: 6px; font-size: 14px; }
         
         .botoes { grid-column: span 2; display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
@@ -142,7 +142,7 @@
 <div class="historico-container" id="painel-historico">
     <h3 style="margin-top:0; color:var(--secondary)">Histórico de Emissões</h3>
     <div class="busca-container">
-        <input type="text" id="inputBusca" onkeyup="filtrarTabela()" placeholder="🔍 Pesquisar no histórico por NOME ou NÚMERO DO TCE...">
+        <input type="text" id="inputBusca" onkeyup="filtrarTabela()" placeholder="🔍 Pesquisar por qualquer dado (Nome, Empresa, TCE, Data)...">
     </div>
     <table class="historico-table">
         <thead>
@@ -164,6 +164,22 @@
 <script>
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+    // --- CONTADOR E LÓGICA DE APOIO ---
+    let totalProcessados = localStorage.getItem('contagem_apoio') || 0;
+
+    function verificarApoio() {
+        totalProcessados++;
+        localStorage.setItem('contagem_apoio', totalProcessados);
+        
+        if (totalProcessados % 50 === 0) {
+            const msg = `🚀 Caro usuário!\n\nVocê já gerou ${totalProcessados} rescisões com este módulo. Está gostando da ferramenta?\n\nQue tal ofertar qualquer valor para ajudar a continuarmos projetando soluções como esta?\n\nClique em OK para copiar a chave Pix (61 99200-6496).`;
+            if (confirm(msg)) {
+                navigator.clipboard.writeText('61992006496');
+                alert("Chave Pix copiada! Muito obrigado pelo incentivo.");
+            }
+        }
+    }
 
     function formatarDataManual(input) {
         let v = input.value.replace(/\D/g, '');
@@ -188,13 +204,16 @@
         }
     }
 
+    // --- FILTRO GLOBAL (PROCURA EM TODAS AS COLUNAS) ---
     function filtrarTabela() {
         const filtro = document.getElementById("inputBusca").value.toUpperCase();
         const rows = document.getElementById("lista-historico").getElementsByTagName("tr");
+        
         for (let row of rows) {
-            const nomeTexto = row.querySelector('.log-nome')?.innerText.toUpperCase() || "";
-            const tceTexto = row.querySelector('.log-tce')?.innerText.toUpperCase() || "";
-            if (nomeTexto.includes(filtro) || tceTexto.includes(filtro)) {
+            // Pega o texto de todas as células da linha e une em uma string única
+            const textoDaLinha = row.innerText.toUpperCase();
+            
+            if (textoDaLinha.includes(filtro)) {
                 row.style.display = "";
             } else {
                 row.style.display = "none";
@@ -215,7 +234,6 @@
             if (dadosManual) {
                 ({ nome, empresa, numTCE, inicio, dResc } = dadosManual);
             } else {
-                // Limpeza agressiva do texto colado para facilitar o Regex
                 const raw = document.getElementById('texto-tce').value.replace(/\s+/g, ' ').trim();
                 dResc = document.getElementById('data-rescisao').value.trim();
                 
@@ -224,19 +242,16 @@
                     return resolve();
                 }
                 
-                // Funcao de extracao melhorada (ignora lixo entre campos)
                 const extrair = (regex) => {
                     const match = raw.match(regex);
                     return match ? match[1].trim() : "";
                 };
 
-                // Novas Regex ajustadas para o padrao colado do PDF
                 nome = extrair(/Nome:\s*([A-Za-zÀ-ÖØ-öø-ÿ\s]+?)(?=\s*(?:Endereço|Cadastro|CPF|Matrícula|Nível|$))/i);
                 empresa = extrair(/Razão Social:\s*([A-Za-zÀ-ÖØ-öø-ÿ0-9\s\.\-&]+?)(?=\s*(?:Endereço|CNPJ|Cidade|Hash|$))/i);
                 numTCE = extrair(/(?:Número|TCE n[°o]|AC\/TCE Número):\s*([\d\s\/\.-]+)/i);
                 inicio = extrair(/(?:iniciar-se em|início em|vigência de|Início:)\s*([\d/]{10})/i);
 
-                // Fallbacks caso a extração automática falhe
                 if (!nome) nome = prompt("Nome do estagiário não encontrado. Digite manualmente:") || "NÃO IDENTIFICADO";
                 if (!empresa) empresa = prompt("Razão Social não encontrada. Digite manualmente:") || "NÃO IDENTIFICADA";
                 if (!numTCE) numTCE = prompt("Número do TCE não encontrado. Digite manualmente:") || "0000";
@@ -281,6 +296,7 @@
                     </tr>`;
                     document.getElementById('lista-historico').insertAdjacentHTML('afterbegin', logHTML);
                     salvarEstado();
+                    verificarApoio(); // Chama a contagem de 50 usos
                     container.scrollIntoView({ behavior: 'smooth' });
                 }
 
@@ -328,7 +344,7 @@
     async function baixarTodosVisiveis() {
         const linhas = Array.from(document.querySelectorAll('#lista-historico tr'))
                             .filter(tr => tr.style.display !== 'none');
-        if (linhas.length === 0) return alert("Não há registros para baixar.");
+        if (linhas.length === 0) return alert("Não há registros visíveis para baixar.");
         const confirmar = confirm(`Deseja baixar ${linhas.length} PDFs em lote?`);
         if (confirmar) {
             const btn = document.getElementById('btnLote');
