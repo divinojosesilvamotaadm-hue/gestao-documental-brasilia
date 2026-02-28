@@ -105,7 +105,7 @@
             <input type="file" id="pdf-fundo" accept="application/pdf" style="width: 100%; margin-top:5px;">
         </div>
         <textarea id="texto-tce" placeholder="Cole os dados do TCE aqui..."></textarea>
-        <input type="text" id="data-rescisao" placeholder="Data Rescisão (Ex: 26022026)" oninput="formatarDataManual(this)">
+        <input type="text" id="data-rescisao" placeholder="Data Rescisão (Ex: 26/02/2026)" oninput="formatarDataManual(this)">
         <input type="text" id="localidade" value="Brasília/DF">
         
         <div class="botoes">
@@ -166,13 +166,8 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
     function formatarDataManual(input) {
-        // Remove tudo que não é dígito
         let v = input.value.replace(/\D/g, '');
-        
-        // Se colar algo maior que 8 dígitos, corta
         if (v.length > 8) v = v.substring(0, 8);
-
-        // Aplica a máscara DD/MM/AAAA conforme digita
         if (v.length >= 5) {
             input.value = v.replace(/(\d{2})(\d{2})(\d{1,4})/, "$1/$2/$3");
         } else if (v.length >= 3) {
@@ -220,18 +215,32 @@
             if (dadosManual) {
                 ({ nome, empresa, numTCE, inicio, dResc } = dadosManual);
             } else {
-                const raw = document.getElementById('texto-tce').value.trim();
+                // Limpeza agressiva do texto colado para facilitar o Regex
+                const raw = document.getElementById('texto-tce').value.replace(/\s+/g, ' ').trim();
                 dResc = document.getElementById('data-rescisao').value.trim();
+                
                 if (!raw || dResc.length < 10) {
-                    alert("Preencha os dados e a data de rescisão corretamente (Ex: 26/02/2026).");
+                    alert("Preencha os dados e a data de rescisão corretamente.");
                     return resolve();
                 }
                 
-                const extrair = (regex) => (raw.match(regex)?.[1] || "").trim();
-                nome = extrair(/Nome:\s*([^\n\r]+?)(?=\s*(Cadastro|CPF|Matrícula|RG|$))/i) || "NÃO IDENTIFICADO";
-                empresa = extrair(/(?:Razão Social|Empresa):\s*([^\n\r]+?)(?=\s*(CNPJ|Endereço|Fone|$))/i) || "NÃO IDENTIFICADA";
-                numTCE = extrair(/(?:Número|TCE nº|Contrato nº|Termo nº|n°):\s*([\d\s\/\.-]+)/i) || "0000";
-                inicio = extrair(/(?:início em|iniciar-se em|vigência de|Início:)\s*([\d/]+)/i) || "--/--/----";
+                // Funcao de extracao melhorada (ignora lixo entre campos)
+                const extrair = (regex) => {
+                    const match = raw.match(regex);
+                    return match ? match[1].trim() : "";
+                };
+
+                // Novas Regex ajustadas para o padrao colado do PDF
+                nome = extrair(/Nome:\s*([A-Za-zÀ-ÖØ-öø-ÿ\s]+?)(?=\s*(?:Endereço|Cadastro|CPF|Matrícula|Nível|$))/i);
+                empresa = extrair(/Razão Social:\s*([A-Za-zÀ-ÖØ-öø-ÿ0-9\s\.\-&]+?)(?=\s*(?:Endereço|CNPJ|Cidade|Hash|$))/i);
+                numTCE = extrair(/(?:Número|TCE n[°o]|AC\/TCE Número):\s*([\d\s\/\.-]+)/i);
+                inicio = extrair(/(?:iniciar-se em|início em|vigência de|Início:)\s*([\d/]{10})/i);
+
+                // Fallbacks caso a extração automática falhe
+                if (!nome) nome = prompt("Nome do estagiário não encontrado. Digite manualmente:") || "NÃO IDENTIFICADO";
+                if (!empresa) empresa = prompt("Razão Social não encontrada. Digite manualmente:") || "NÃO IDENTIFICADA";
+                if (!numTCE) numTCE = prompt("Número do TCE não encontrado. Digite manualmente:") || "0000";
+                if (!inicio) inicio = prompt("Data de início não encontrada. Digite (DD/MM/AAAA):") || "--/--/----";
             }
 
             const reader = new FileReader();
@@ -319,16 +328,12 @@
     async function baixarTodosVisiveis() {
         const linhas = Array.from(document.querySelectorAll('#lista-historico tr'))
                             .filter(tr => tr.style.display !== 'none');
-
         if (linhas.length === 0) return alert("Não há registros para baixar.");
-
         const confirmar = confirm(`Deseja baixar ${linhas.length} PDFs em lote?`);
-        
         if (confirmar) {
             const btn = document.getElementById('btnLote');
             const originalText = btn.innerText;
             btn.disabled = true;
-
             for (let i = 0; i < linhas.length; i++) {
                 btn.innerText = `PROCESSANDO ${i+1}/${linhas.length}...`;
                 const btnIndividual = linhas[i].querySelector('.btn-baixar-log');
@@ -337,7 +342,6 @@
                     await new Promise(r => setTimeout(r, 600));
                 }
             }
-
             btn.innerText = originalText;
             btn.disabled = false;
             alert("Download em lote concluído!");
